@@ -10,7 +10,7 @@ import {
   FaTrash,
 } from "react-icons/fa";
 
-const Sidebar = ({ sidebarOpen, setSidebarOpen, user, onLogout }) => {
+const Sidebar = ({ sidebarOpen, user, onLogout }) => {
   const menuItems = [
     { path: "/admin", name: "Dashboard", icon: <FaHome /> },
     { path: "/admin/locations", name: "Locations", icon: <FaMapMarkerAlt /> },
@@ -28,7 +28,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, onLogout }) => {
 
   return (
     <div
-      className={`fixed left-0 top-0 h-full bg-gray-900 text-white transition-all duration-300 z-50 ${sidebarOpen ? "w-64" : "w-20"}`}
+      className={`hidden md:block fixed left-0 top-0 h-full bg-gray-900 text-white transition-all duration-300 z-50 ${sidebarOpen ? "w-64" : "w-20"}`}
     >
       <div className="flex flex-col h-full">
         <div className="p-4 border-b border-gray-700">

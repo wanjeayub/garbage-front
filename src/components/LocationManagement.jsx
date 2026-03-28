@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   createLocation,
   updateLocation,
   deleteLocation,
-  fetchLocations,
 } from "../redux/slices/locationSlice";
 import { createPlot, fetchPlots } from "../redux/slices/plotSlice";
 import {
@@ -14,18 +13,16 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaLayerGroup,
-  FaSync,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 
-const LocationManagement = () => {
+const LocationManagement = ({ refreshData }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPlotModalOpen, setIsPlotModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [expandedLocations, setExpandedLocations] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -37,34 +34,12 @@ const LocationManagement = () => {
   });
 
   const dispatch = useDispatch();
-  const { locations, loading } = useSelector((state) => state.locations);
+  const { locations } = useSelector((state) => state.locations);
   const { plots } = useSelector((state) => state.plots);
 
-  const refreshAllData = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([
-        dispatch(fetchLocations()).unwrap(),
-        dispatch(fetchPlots()).unwrap(),
-      ]);
-    } catch (error) {
-      console.error("Refresh failed:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
+  useEffect(() => {
+    dispatch(fetchPlots());
   }, [dispatch]);
-
-  useEffect(() => {
-    refreshAllData();
-  }, [refreshAllData]);
-
-  // Polling for real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshAllData();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [refreshAllData]);
 
   const filteredLocations = locations.filter(
     (location) =>
@@ -84,7 +59,7 @@ const LocationManagement = () => {
         await dispatch(createLocation(formData)).unwrap();
         toast.success("Location created successfully!");
       }
-      await refreshAllData();
+      await refreshData();
       setIsModalOpen(false);
       setEditingLocation(null);
       setFormData({ name: "", address: "" });
@@ -112,7 +87,7 @@ const LocationManagement = () => {
         }),
       ).unwrap();
       toast.success("Plot added successfully!");
-      await refreshAllData();
+      await refreshData();
       setIsPlotModalOpen(false);
       setSelectedLocation(null);
       setPlotFormData({ name: "", expectedAmount: 0, expenses: 0 });
@@ -139,7 +114,7 @@ const LocationManagement = () => {
       try {
         await dispatch(deleteLocation(id)).unwrap();
         toast.success("Location deleted successfully!");
-        await refreshAllData();
+        await refreshData();
       } catch (error) {
         toast.error(error.message || "Failed to delete location");
       }
@@ -161,120 +136,109 @@ const LocationManagement = () => {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           Location Management
         </h1>
-        <div className="flex space-x-4">
+        <div className="flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
           <input
             type="text"
             placeholder="Search locations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
+            className="input-mobile"
           />
           <button
-            onClick={refreshAllData}
-            disabled={isRefreshing}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center disabled:opacity-50"
-          >
-            <FaSync className={`mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-          <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition flex items-center"
+            className="btn-primary whitespace-nowrap"
           >
             <FaPlus className="mr-2" /> Add Location
           </button>
         </div>
       </div>
 
-      {loading && (
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-        </div>
-      )}
-
-      <div className="space-y-4">
+      {/* Locations List */}
+      <div className="space-y-3">
         {filteredLocations.map((location) => (
-          <div key={location._id} className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <button
-                      onClick={() => toggleLocation(location._id)}
-                      className="mr-2 text-gray-500 hover:text-gray-700"
-                    >
-                      {expandedLocations[location._id] ? (
-                        <FaChevronUp />
-                      ) : (
-                        <FaChevronDown />
-                      )}
-                    </button>
-                    <div>
-                      <h3 className="text-xl font-semibold">{location.name}</h3>
-                      <p className="text-gray-600">{location.address}</p>
-                    </div>
+          <div key={location._id} className="card-mobile">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleLocation(location._id)}
+                    className="text-gray-500"
+                  >
+                    {expandedLocations[location._id] ? (
+                      <FaChevronUp />
+                    ) : (
+                      <FaChevronDown />
+                    )}
+                  </button>
+                  <div>
+                    <h3 className="font-semibold text-base md:text-lg">
+                      {location.name}
+                    </h3>
+                    <p className="text-xs md:text-sm text-gray-600">
+                      {location.address}
+                    </p>
                   </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleAddPlot(location)}
-                    className="text-purple-500 hover:text-purple-600 p-2"
-                    title="Add Plot"
-                  >
-                    <FaLayerGroup />
-                  </button>
-                  <button
-                    onClick={() => handleEdit(location)}
-                    className="text-blue-500 hover:text-blue-600 p-2"
-                  >
-                    <FaEdit />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(location._id)}
-                    className="text-red-500 hover:text-red-600 p-2"
-                  >
-                    <FaTrash />
-                  </button>
-                </div>
               </div>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleAddPlot(location)}
+                  className="p-2 text-purple-500 hover:text-purple-600"
+                  title="Add Plot"
+                >
+                  <FaLayerGroup />
+                </button>
+                <button
+                  onClick={() => handleEdit(location)}
+                  className="p-2 text-blue-500 hover:text-blue-600"
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  onClick={() => handleDelete(location._id)}
+                  className="p-2 text-red-500 hover:text-red-600"
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-sm text-gray-500">Expected Amount</p>
-                  <p className="text-lg font-bold text-gray-800">
-                    KSh {location.totalExpectedAmount || 0}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-sm text-gray-500">Paid Amount</p>
-                  <p className="text-lg font-bold text-green-600">
-                    KSh {location.totalPaidAmount || 0}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-sm text-gray-500">Expenses</p>
-                  <p className="text-lg font-bold text-red-600">
-                    KSh {location.totalExpenses || 0}
-                  </p>
-                </div>
+            <div className="grid grid-cols-3 gap-2 mt-3 text-sm">
+              <div className="bg-gray-50 rounded p-2">
+                <p className="text-gray-500 text-xs">Expected</p>
+                <p className="font-semibold">
+                  KSh {location.totalExpectedAmount || 0}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded p-2">
+                <p className="text-gray-500 text-xs">Paid</p>
+                <p className="font-semibold text-green-600">
+                  KSh {location.totalPaidAmount || 0}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded p-2">
+                <p className="text-gray-500 text-xs">Expenses</p>
+                <p className="font-semibold text-red-600">
+                  KSh {location.totalExpenses || 0}
+                </p>
               </div>
             </div>
 
             {expandedLocations[location._id] && (
-              <div className="p-6 bg-gray-50">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-semibold">
-                    Plots in this Location (
-                    {getPlotsForLocation(location._id).length})
+              <div className="border-t mt-3 pt-3">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-semibold text-sm">
+                    Plots ({getPlotsForLocation(location._id).length})
                   </h4>
                   <button
                     onClick={() => handleAddPlot(location)}
-                    className="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition flex items-center"
+                    className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 flex items-center"
                   >
                     <FaPlus className="mr-1 text-xs" /> Add Plot
                   </button>
@@ -282,35 +246,29 @@ const LocationManagement = () => {
                 {getPlotsForLocation(location._id).length > 0 ? (
                   <div className="space-y-2">
                     {getPlotsForLocation(location._id).map((plot) => (
-                      <div
-                        key={plot._id}
-                        className="bg-white rounded p-3 flex justify-between items-center"
-                      >
-                        <div>
-                          <p className="font-medium">{plot.name}</p>
-                          <p className="text-sm text-gray-500">
-                            Users: {plot.users?.length || 0} | Expected: KSh{" "}
-                            {plot.expectedAmount || 0} | Paid: KSh{" "}
-                            {plot.paidAmount || 0}
-                          </p>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-green-600 font-semibold">
+                      <div key={plot._id} className="bg-gray-50 rounded p-2">
+                        <div className="flex justify-between items-center">
+                          <p className="font-medium text-sm">{plot.name}</p>
+                          <span className="text-xs text-green-600 font-semibold">
                             {plot.expectedAmount > 0
                               ? Math.round(
                                   (plot.paidAmount / plot.expectedAmount) * 100,
                                 )
                               : 0}
-                            % collected
+                            %
                           </span>
                         </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Users: {plot.users?.length || 0} | Expected: KSh{" "}
+                          {plot.expectedAmount || 0} | Paid: KSh{" "}
+                          {plot.paidAmount || 0}
+                        </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500">
-                    No plots in this location yet. Click "Add Plot" to create
-                    one.
+                  <p className="text-gray-500 text-sm">
+                    No plots in this location yet.
                   </p>
                 )}
               </div>
@@ -321,43 +279,47 @@ const LocationManagement = () => {
 
       {/* Location Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">
-              {editingLocation ? "Edit Location" : "Add New Location"}
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Location Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  required
-                />
+        <div className="modal-mobile">
+          <div className="modal-content-mobile">
+            <div className="sticky top-0 bg-white border-b p-4">
+              <h2 className="text-xl font-bold">
+                {editingLocation ? "Edit Location" : "Add New Location"}
+              </h2>
+            </div>
+            <form onSubmit={handleSubmit} className="p-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Location Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    className="input-mobile"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Address
+                  </label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    className="input-mobile"
+                    rows="3"
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="mb-6">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Address
-                </label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  rows="3"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => {
@@ -365,13 +327,13 @@ const LocationManagement = () => {
                     setEditingLocation(null);
                     setFormData({ name: "", address: "" });
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 border rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg"
                 >
                   {editingLocation ? "Update" : "Create"}
                 </button>
@@ -383,62 +345,66 @@ const LocationManagement = () => {
 
       {/* Add Plot Modal */}
       {isPlotModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">
-              Add Plot to {selectedLocation?.name}
-            </h2>
-            <form onSubmit={handlePlotSubmit}>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Plot Name
-                </label>
-                <input
-                  type="text"
-                  value={plotFormData.name}
-                  onChange={(e) =>
-                    setPlotFormData({ ...plotFormData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  required
-                />
+        <div className="modal-mobile">
+          <div className="modal-content-mobile">
+            <div className="sticky top-0 bg-white border-b p-4">
+              <h2 className="text-xl font-bold">
+                Add Plot to {selectedLocation?.name}
+              </h2>
+            </div>
+            <form onSubmit={handlePlotSubmit} className="p-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Plot Name
+                  </label>
+                  <input
+                    type="text"
+                    value={plotFormData.name}
+                    onChange={(e) =>
+                      setPlotFormData({ ...plotFormData, name: e.target.value })
+                    }
+                    className="input-mobile"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Expected Amount (KSh)
+                  </label>
+                  <input
+                    type="number"
+                    value={plotFormData.expectedAmount}
+                    onChange={(e) =>
+                      setPlotFormData({
+                        ...plotFormData,
+                        expectedAmount: parseFloat(e.target.value),
+                      })
+                    }
+                    className="input-mobile"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Expenses (KSh)
+                  </label>
+                  <input
+                    type="number"
+                    value={plotFormData.expenses}
+                    onChange={(e) =>
+                      setPlotFormData({
+                        ...plotFormData,
+                        expenses: parseFloat(e.target.value),
+                      })
+                    }
+                    className="input-mobile"
+                  />
+                </div>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Expected Amount (KSh)
-                </label>
-                <input
-                  type="number"
-                  value={plotFormData.expectedAmount}
-                  onChange={(e) =>
-                    setPlotFormData({
-                      ...plotFormData,
-                      expectedAmount: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                />
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Expenses (KSh)
-                </label>
-                <input
-                  type="number"
-                  value={plotFormData.expenses}
-                  onChange={(e) =>
-                    setPlotFormData({
-                      ...plotFormData,
-                      expenses: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => {
@@ -450,13 +416,13 @@ const LocationManagement = () => {
                       expenses: 0,
                     });
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 border rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg"
                 >
                   Add Plot
                 </button>

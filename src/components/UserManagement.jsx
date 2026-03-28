@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   createUser,
@@ -13,18 +13,17 @@ import {
   FaTrash,
   FaPlus,
   FaMoneyBillWave,
-  FaSync,
+  FaSearch,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 
-const UserManagement = () => {
+const UserManagement = ({ refreshData }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -33,34 +32,12 @@ const UserManagement = () => {
   });
 
   const dispatch = useDispatch();
-  const { users, loading } = useSelector((state) => state.users);
+  const { users } = useSelector((state) => state.users);
   const { plots } = useSelector((state) => state.plots);
 
-  const refreshAllData = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([
-        dispatch(fetchUsers()).unwrap(),
-        dispatch(fetchPlots()).unwrap(),
-      ]);
-    } catch (error) {
-      console.error("Refresh failed:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
+  useEffect(() => {
+    dispatch(fetchPlots());
   }, [dispatch]);
-
-  useEffect(() => {
-    refreshAllData();
-  }, [refreshAllData]);
-
-  // Polling for real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshAllData();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [refreshAllData]);
 
   const filteredUsers = users.filter(
     (user) =>
@@ -80,7 +57,7 @@ const UserManagement = () => {
         await dispatch(createUser(formData)).unwrap();
         toast.success("User created successfully!");
       }
-      await refreshAllData();
+      await refreshData();
       setIsModalOpen(false);
       setEditingUser(null);
       setFormData({ name: "", email: "", password: "", role: "user" });
@@ -105,7 +82,7 @@ const UserManagement = () => {
       try {
         await dispatch(deleteUser(id)).unwrap();
         toast.success("User deleted successfully!");
-        await refreshAllData();
+        await refreshData();
       } catch (error) {
         toast.error(error.message || "Failed to delete user");
       }
@@ -125,7 +102,7 @@ const UserManagement = () => {
           markUserPaid({ id: selectedUser._id, amount: paymentAmount }),
         ).unwrap();
         toast.success(`Payment of KSh ${paymentAmount} added successfully!`);
-        await refreshAllData();
+        await refreshData();
         setShowPaymentModal(false);
         setSelectedUser(null);
         setPaymentAmount(0);
@@ -156,194 +133,153 @@ const UserManagement = () => {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">User Management</h1>
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-          />
-          <button
-            onClick={refreshAllData}
-            disabled={isRefreshing}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center disabled:opacity-50"
-          >
-            <FaSync className={`mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+          User Management
+        </h1>
+        <div className="flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input-mobile pl-10"
+            />
+          </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition flex items-center"
+            className="btn-primary whitespace-nowrap"
           >
             <FaPlus className="mr-2" /> Add User
           </button>
         </div>
       </div>
 
-      {loading && (
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Plot
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Paid Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
-                <tr key={user._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {user.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{user.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      {getPlotName(user.plotId)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPaymentColor(user.paymentStatus)}`}
-                    >
-                      {user.paymentStatus}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    KSh {user.paidAmount || 0}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleMarkPaid(user)}
-                      className="text-green-600 hover:text-green-900 mr-3"
-                      title="Add Payment"
-                    >
-                      <FaMoneyBillWave />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(user)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user._id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <FaTrash />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Users List - Mobile Optimized */}
+      <div className="space-y-3">
+        {filteredUsers.map((user) => (
+          <div key={user._id} className="card-mobile">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <h3 className="font-semibold text-base">{user.name}</h3>
+                <p className="text-sm text-gray-600">{user.email}</p>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full ${getPaymentColor(user.paymentStatus)}`}
+                  >
+                    {user.paymentStatus}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Plot: {getPlotName(user.plotId)}
+                  </span>
+                  <span className="text-xs font-semibold text-green-600">
+                    Paid: KSh {user.paidAmount || 0}
+                  </span>
+                </div>
+              </div>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleMarkPaid(user)}
+                  className="p-2 text-green-500 hover:text-green-600"
+                  title="Add Payment"
+                >
+                  <FaMoneyBillWave />
+                </button>
+                <button
+                  onClick={() => handleEdit(user)}
+                  className="p-2 text-blue-500 hover:text-blue-600"
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  onClick={() => handleDelete(user._id)}
+                  className="p-2 text-red-500 hover:text-red-600"
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* User Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">
-              {editingUser ? "Edit User" : "Add New User"}
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  required
-                />
+        <div className="modal-mobile">
+          <div className="modal-content-mobile">
+            <div className="sticky top-0 bg-white border-b p-4">
+              <h2 className="text-xl font-bold">
+                {editingUser ? "Edit User" : "Add New User"}
+              </h2>
+            </div>
+            <form onSubmit={handleSubmit} className="p-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    className="input-mobile"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="input-mobile"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className="input-mobile"
+                    required={!editingUser}
+                  />
+                  {editingUser && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave blank to keep current password
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">Role</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) =>
+                      setFormData({ ...formData, role: e.target.value })
+                    }
+                    className="input-mobile"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  required={!editingUser}
-                />
-                {editingUser && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave blank to keep current password
-                  </p>
-                )}
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Role
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => {
@@ -356,13 +292,13 @@ const UserManagement = () => {
                       role: "user",
                     });
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 border rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg"
                 >
                   {editingUser ? "Update" : "Create"}
                 </button>
@@ -374,47 +310,51 @@ const UserManagement = () => {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Add Payment</h2>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                User: {selectedUser?.name}
-              </label>
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                Amount (KSh)
-              </label>
-              <input
-                type="number"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(parseFloat(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                placeholder="Enter amount"
-                min="0"
-                step="0.01"
-                autoFocus
-              />
-              <p className="text-sm text-gray-500 mt-2">
-                Current paid: KSh {selectedUser?.paidAmount || 0}
-              </p>
-              <p className="text-sm text-gray-500">
-                Status: {selectedUser?.paymentStatus}
-              </p>
+        <div className="modal-mobile">
+          <div className="modal-content-mobile">
+            <div className="sticky top-0 bg-white border-b p-4">
+              <h2 className="text-xl font-bold">Add Payment</h2>
             </div>
-            <div className="flex justify-end space-x-2">
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  User: {selectedUser?.name}
+                </label>
+                <label className="block text-sm font-bold mb-2">
+                  Amount (KSh)
+                </label>
+                <input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value))}
+                  className="input-mobile"
+                  placeholder="Enter amount"
+                  min="0"
+                  step="0.01"
+                  autoFocus
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Current paid: KSh {selectedUser?.paidAmount || 0}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Status: {selectedUser?.paymentStatus}
+                </p>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white border-t p-4 flex space-x-2">
               <button
                 onClick={() => {
                   setShowPaymentModal(false);
                   setSelectedUser(null);
                   setPaymentAmount(0);
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePaymentSubmit}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg"
               >
                 Add Payment
               </button>
